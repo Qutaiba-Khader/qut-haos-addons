@@ -365,23 +365,23 @@ HTML_TEMPLATE = '''
             <div class="grid">
                 <div class="form-group">
                     <label>Startup Delay (seconds)</label>
-                    <input type="number" id="startup_delay_sec" min="0" max="60" onchange="saveConfig()">
-                    <p class="help-text">Wait before scanning devices (0-60)</p>
+                    <input type="number" id="startup_delay_sec" min="0" max="30" onchange="saveConfig()">
+                    <p class="help-text">Wait before scanning devices (0-30)</p>
                 </div>
                 <div class="form-group">
                     <label>Debounce (ms)</label>
-                    <input type="number" id="debounce_ms" min="0" max="500" onchange="saveConfig()">
-                    <p class="help-text">Delay after each event (0-500)</p>
+                    <input type="number" id="debounce_ms" min="0" max="200" onchange="saveConfig()">
+                    <p class="help-text">Delay after each event (0-200)</p>
                 </div>
                 <div class="form-group">
                     <label>Rate Limit (Hz)</label>
-                    <input type="number" id="rate_limit_per_device_hz" min="1" max="500" onchange="saveConfig()">
-                    <p class="help-text">Max events per second per device (1-500)</p>
+                    <input type="number" id="rate_limit_per_device_hz" min="5" max="200" onchange="saveConfig()">
+                    <p class="help-text">Max events per second per device (5-200)</p>
                 </div>
                 <div class="form-group">
                     <label>Long Press Threshold (ms)</label>
-                    <input type="number" id="long_press_ms_default" min="100" max="5000" onchange="saveConfig()">
-                    <p class="help-text">Minimum duration for long press (100-5000)</p>
+                    <input type="number" id="long_press_ms_default" min="200" max="2000" onchange="saveConfig()">
+                    <p class="help-text">Minimum duration for long press (200-2000)</p>
                 </div>
             </div>
             <div class="form-group">
@@ -404,13 +404,13 @@ HTML_TEMPLATE = '''
             <div class="grid">
                 <div class="form-group">
                     <label>Scroll Step Scale</label>
-                    <input type="number" id="scroll_step_scale" step="0.1" min="0.1" max="10" onchange="saveConfig()">
-                    <p class="help-text">Multiply scroll values by this factor (0.1-10)</p>
+                    <input type="number" id="scroll_step_scale" step="0.1" min="0.1" max="5" onchange="saveConfig()">
+                    <p class="help-text">Multiply scroll values after merging (0.1-5.0)</p>
                 </div>
                 <div class="form-group">
                     <label>Scroll Burst Window (ms)</label>
-                    <input type="number" id="scroll_burst_window_ms" min="0" max="1000" onchange="saveConfig()">
-                    <p class="help-text">Merge rapid scroll events within this window (0-1000)</p>
+                    <input type="number" id="scroll_burst_window_ms" min="50" max="500" onchange="saveConfig()">
+                    <p class="help-text">Merge rapid scroll events within this window (50-500)</p>
                 </div>
             </div>
             <div class="form-group">
