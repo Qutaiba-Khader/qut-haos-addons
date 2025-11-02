@@ -39,7 +39,8 @@ class ConfigManager:
         "filter_scrolling": False,
         "deny_names": [
             "Power Button", "Sleep Button", "Video Bus", "Lid Switch",
-            "PC Speaker", "HDA Intel HDMI/DP", "gpio-keys"
+            "PC Speaker", "HDA Intel HDMI/DP", "gpio-keys",
+            "ACPI Video", "AT Translated Set 2 keyboard"
         ],
         "selected_devices": [],
         "keymap_override": {}
@@ -48,12 +49,12 @@ class ConfigManager:
     # Configuration constraints
     CONSTRAINTS = {
         "mqtt_port": (1, 65535),
-        "startup_delay_sec": (0, 60),
-        "debounce_ms": (0, 500),
-        "rate_limit_per_device_hz": (1, 500),
-        "long_press_ms_default": (100, 5000),
-        "scroll_step_scale": (0.1, 10.0),
-        "scroll_burst_window_ms": (0, 1000),
+        "startup_delay_sec": (0, 30),
+        "debounce_ms": (0, 200),
+        "rate_limit_per_device_hz": (5, 200),
+        "long_press_ms_default": (200, 2000),
+        "scroll_step_scale": (0.1, 5.0),
+        "scroll_burst_window_ms": (50, 500),
         "mqtt_qos": (0, 2)
     }
 

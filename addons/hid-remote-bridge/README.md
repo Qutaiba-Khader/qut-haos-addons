@@ -57,16 +57,16 @@ The add-on works out of the box with sensible defaults. Simply:
 - MQTT settings: host, port, username, password, topic, QoS, retain
 
 #### 3. Behavior
-- **Startup delay**: Wait before scanning devices (0-60 seconds, default: 5)
-- **Debounce**: Delay after each event (0-500 ms, default: 30)
-- **Rate limit**: Max events per second per device (1-500 Hz, default: 50)
-- **Long press threshold**: Minimum duration for long press (100-5000 ms, default: 500)
+- **Startup delay**: Wait before scanning devices (0-30 seconds, default: 5)
+- **Debounce**: Delay after each event (0-200 ms, default: 30)
+- **Rate limit**: Max events per second per device (5-200 Hz, default: 50)
+- **Long press threshold**: Minimum duration for long press (200-2000 ms, default: 500)
 - **Ignore key repeat**: Filter out repeat events (default: ON)
 - **Emit release events**: Send key-up events (default: ON)
 
 #### 4. Scrolling
-- **Scroll step scale**: Multiply scroll values (0.1-10, default: 1.0)
-- **Scroll burst window**: Merge rapid scrolls within window (0-1000 ms, default: 120)
+- **Scroll step scale**: Multiply scroll values after merging (0.1-5.0, default: 1.0)
+- **Scroll burst window**: Merge rapid scrolls within window (50-500 ms, default: 120)
 - **Filter scrolling**: Suppress all scroll events (default: OFF)
 
 #### 5. Filters
@@ -82,6 +82,8 @@ Lid Switch
 PC Speaker
 HDA Intel HDMI/DP
 gpio-keys
+ACPI Video
+AT Translated Set 2 keyboard
 ```
 
 #### 6. Advanced
@@ -311,7 +313,9 @@ You can set different long-press thresholds for specific devices:
     "Lid Switch",
     "PC Speaker",
     "HDA Intel HDMI/DP",
-    "gpio-keys"
+    "gpio-keys",
+    "ACPI Video",
+    "AT Translated Set 2 keyboard"
   ],
   "selected_devices": [],
   "keymap_override": {}

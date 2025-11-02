@@ -226,9 +226,8 @@ class EventHandler:
         if not self._check_rate_limit(device):
             return
 
-        # Apply scroll scaling
+        # Get scroll scaling (apply AFTER merging)
         scale = config.get('scroll_step_scale', 1.0)
-        scaled_value = int(value * scale)
 
         # Handle scroll burst merging
         burst_window = config.get('scroll_burst_window_ms', 120)
@@ -238,22 +237,24 @@ class EventHandler:
             last_time = self.scroll_burst_buffer[key]['time']
 
             if now - last_time < burst_window:
-                # Within burst window, accumulate
-                self.scroll_burst_buffer[key]['value'] += scaled_value
+                # Within burst window, accumulate RAW values
+                self.scroll_burst_buffer[key]['value'] += value
                 self.scroll_burst_buffer[key]['time'] = now
                 return
             else:
-                # Emit accumulated burst
+                # Emit accumulated burst with scaling applied AFTER merging
                 if self.scroll_burst_buffer[key]['value'] != 0:
                     axis = "REL_WHEEL" if code == self.REL_WHEEL else "REL_HWHEEL"
-                    self._emit_event(device, "scroll", axis, None, self.scroll_burst_buffer[key]['value'])
+                    scaled_value = int(self.scroll_burst_buffer[key]['value'] * scale)
+                    self._emit_event(device, "scroll", axis, None, scaled_value)
 
-                # Start new burst
-                self.scroll_burst_buffer[key] = {'value': scaled_value, 'time': now}
+                # Start new burst with raw value
+                self.scroll_burst_buffer[key] = {'value': value, 'time': now}
                 return
 
-        # Emit scroll event immediately
+        # Emit scroll event immediately with scaling
         axis = "REL_WHEEL" if code == self.REL_WHEEL else "REL_HWHEEL"
+        scaled_value = int(value * scale)
         self._emit_event(device, "scroll", axis, None, scaled_value)
 
     def _check_rate_limit(self, device: Dict[str, Any]) -> bool:
