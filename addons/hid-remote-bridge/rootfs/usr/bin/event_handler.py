@@ -54,14 +54,18 @@ class EventHandler:
         self.device_fds = {}
         self.mqtt_client = None
 
-        # Rate limiting state
-        self.last_event_time = defaultdict(float)
+        # Rate limiting state (per device+event_type to prevent scroll from throttling keys)
+        self.last_event_time = defaultdict(lambda: defaultdict(float))
 
         # Long press state
         self.key_press_times = defaultdict(dict)
 
         # Scroll burst state
         self.scroll_burst_buffer = defaultdict(lambda: {'value': 0, 'time': 0})
+
+        # Scroll flush timer
+        self.flush_timer = None
+        self.flush_lock = threading.Lock()
 
     def start_monitoring(self, devices: List[Dict[str, Any]]):
         """Start monitoring selected devices"""
@@ -75,6 +79,9 @@ class EventHandler:
 
         for device in devices:
             self._start_device_monitor(device)
+
+        # Start scroll burst flush timer
+        self._start_scroll_flush_timer()
 
         logger.info(f"Monitoring {len(devices)} devices")
 
@@ -180,8 +187,8 @@ class EventHandler:
         if value == self.KEY_UP and not config.get('emit_release_events', True):
             return
 
-        # Apply rate limiting
-        if not self._check_rate_limit(device):
+        # Apply rate limiting (per device+event_type so scroll doesn't throttle keys)
+        if not self._check_rate_limit(device, 'key'):
             return
 
         # Get key name
@@ -222,43 +229,45 @@ class EventHandler:
         if code not in [self.REL_WHEEL, self.REL_HWHEEL]:
             return
 
-        # Apply rate limiting
-        if not self._check_rate_limit(device):
+        # Apply rate limiting (per device+event_type so scroll doesn't throttle keys)
+        if not self._check_rate_limit(device, 'scroll'):
             return
 
         # Get scroll scaling (apply AFTER merging)
         scale = config.get('scroll_step_scale', 1.0)
 
-        # Handle scroll burst merging
+        # Handle scroll burst merging (with lock to prevent race with flush timer)
         burst_window = config.get('scroll_burst_window_ms', 120)
         if burst_window > 0:
             key = f"{device['device_id']}_{code}"
             now = time.time() * 1000  # milliseconds
-            last_time = self.scroll_burst_buffer[key]['time']
 
-            if now - last_time < burst_window:
-                # Within burst window, accumulate RAW values
-                self.scroll_burst_buffer[key]['value'] += value
-                self.scroll_burst_buffer[key]['time'] = now
-                return
-            else:
-                # Emit accumulated burst with scaling applied AFTER merging
-                if self.scroll_burst_buffer[key]['value'] != 0:
-                    axis = "REL_WHEEL" if code == self.REL_WHEEL else "REL_HWHEEL"
-                    scaled_value = int(self.scroll_burst_buffer[key]['value'] * scale)
-                    self._emit_event(device, "scroll", axis, None, scaled_value)
+            with self.flush_lock:
+                last_time = self.scroll_burst_buffer[key]['time']
 
-                # Start new burst with raw value
-                self.scroll_burst_buffer[key] = {'value': value, 'time': now}
-                return
+                if now - last_time < burst_window:
+                    # Within burst window, accumulate RAW values
+                    self.scroll_burst_buffer[key]['value'] += value
+                    self.scroll_burst_buffer[key]['time'] = now
+                    return
+                else:
+                    # Emit accumulated burst with scaling applied AFTER merging
+                    if self.scroll_burst_buffer[key]['value'] != 0:
+                        axis = "REL_WHEEL" if code == self.REL_WHEEL else "REL_HWHEEL"
+                        scaled_value = int(self.scroll_burst_buffer[key]['value'] * scale)
+                        self._emit_event(device, "scroll", axis, None, scaled_value)
+
+                    # Start new burst with raw value
+                    self.scroll_burst_buffer[key] = {'value': value, 'time': now}
+                    return
 
         # Emit scroll event immediately with scaling
         axis = "REL_WHEEL" if code == self.REL_WHEEL else "REL_HWHEEL"
         scaled_value = int(value * scale)
         self._emit_event(device, "scroll", axis, None, scaled_value)
 
-    def _check_rate_limit(self, device: Dict[str, Any]) -> bool:
-        """Check if event passes rate limiting"""
+    def _check_rate_limit(self, device: Dict[str, Any], event_type: str = 'default') -> bool:
+        """Check if event passes rate limiting (per device+event_type)"""
         config = self.config_manager.get_all()
         rate_limit_hz = config.get('rate_limit_per_device_hz', 50)
 
@@ -267,13 +276,13 @@ class EventHandler:
 
         device_id = device['device_id']
         now = time.time()
-        last_time = self.last_event_time[device_id]
+        last_time = self.last_event_time[device_id][event_type]
         min_interval = 1.0 / rate_limit_hz
 
         if now - last_time < min_interval:
             return False
 
-        self.last_event_time[device_id] = now
+        self.last_event_time[device_id][event_type] = now
         return True
 
     def _is_long_press(self, device: Dict[str, Any], code: int) -> bool:
@@ -413,10 +422,64 @@ class EventHandler:
         }
         return key_map.get(code, f"KEY_{code}")
 
+    def _start_scroll_flush_timer(self):
+        """Start a timer to flush stale scroll bursts"""
+        config = self.config_manager.get_all()
+        burst_window = config.get('scroll_burst_window_ms', 120)
+
+        # Check for stale bursts every half the burst window
+        check_interval = (burst_window / 1000.0) / 2
+
+        def flush_task():
+            while self.running:
+                time.sleep(check_interval)
+                self._flush_stale_scroll_bursts()
+
+        self.flush_timer = threading.Thread(target=flush_task, daemon=True)
+        self.flush_timer.start()
+
+    def _flush_stale_scroll_bursts(self):
+        """Flush scroll bursts that haven't received events within the window"""
+        config = self.config_manager.get_all()
+        burst_window = config.get('scroll_burst_window_ms', 120)
+        scale = config.get('scroll_step_scale', 1.0)
+        now = time.time() * 1000  # milliseconds
+
+        with self.flush_lock:
+            stale_keys = []
+            for key, burst in self.scroll_burst_buffer.items():
+                if burst['value'] != 0 and (now - burst['time']) >= burst_window:
+                    stale_keys.append(key)
+
+            # Emit stale bursts
+            for key in stale_keys:
+                burst = self.scroll_burst_buffer[key]
+                if burst['value'] != 0:
+                    # Parse key: device_id_code
+                    parts = key.rsplit('_', 1)
+                    if len(parts) == 2:
+                        device_id, code_str = parts
+                        try:
+                            code = int(code_str)
+                            axis = "REL_WHEEL" if code == self.REL_WHEEL else "REL_HWHEEL"
+                            scaled_value = int(burst['value'] * scale)
+
+                            # Create minimal device dict for emission
+                            device_info = {'device_id': device_id, 'name': 'unknown', 'source': 'unknown'}
+                            self._emit_event(device_info, "scroll", axis, None, scaled_value)
+                        except (ValueError, KeyError):
+                            pass
+
+                # Reset burst
+                self.scroll_burst_buffer[key] = {'value': 0, 'time': now}
+
     def stop(self):
         """Stop all monitoring"""
         logger.info("Stopping event handler...")
         self.running = False
+
+        # Flush any remaining scroll bursts before shutdown
+        self._flush_stale_scroll_bursts()
 
         # Close all device file descriptors
         for event_path in list(self.device_fds.keys()):
