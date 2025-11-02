@@ -8,6 +8,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apk add --no-cache \
     python3 \
     py3-pip \
+    curl \
     && pip3 install --no-cache-dir \
     flask==3.0.0 \
     paho-mqtt==1.6.1 \
