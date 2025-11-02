@@ -1,0 +1,6 @@
+{
+  "name": "Qutaiba's Home Assistant Add-ons",
+  "url": "https://github.com/Qutaiba-Khader/qut-haos-addons",
+  "maintainer": "Qutaiba Khader",
+  "addons": ["addons/hid-remote-bridge"]
+}
