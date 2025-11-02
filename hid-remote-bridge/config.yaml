@@ -1,8 +1,8 @@
 name: HID Remote Bridge
-version: 0.1.0
+version: 0.1.1
 slug: hid-remote-bridge
 description: Monitor USB and Bluetooth HID devices and emit their events to Home Assistant
-url: https://github.com/Qutaiba-Khader/qut-haos-addons/tree/main/addons/hid-remote-bridge
+url: https://github.com/Qutaiba-Khader/qut-haos-addons/tree/main/hid-remote-bridge
 arch:
   - aarch64
   - amd64
